@@ -16,7 +16,7 @@ var _ = Describe("Reader", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		for _, x := range []struct {
-			S uint32
+			S uint64
 			N int
 		}{
 			{S: 27, N: 12},
@@ -40,8 +40,8 @@ var _ = Describe("Reader", func() {
 	})
 
 	It("should init", func() {
-		Expect(subject.offsets).To(Equal(map[uint32]int64{27: 9, 14: 166, 55: 308, 89: 482}))
-		Expect(subject.sizes).To(Equal(map[uint32]int64{14: 142, 27: 157, 55: 174, 89: 217}))
+		Expect(subject.offsets).To(Equal(map[uint64]int64{27: 9, 14: 166, 55: 308, 89: 482}))
+		Expect(subject.sizes).To(Equal(map[uint64]int64{14: 142, 27: 157, 55: 174, 89: 169}))
 	})
 
 	It("should get readers", func() {
@@ -51,6 +51,21 @@ var _ = Describe("Reader", func() {
 
 		_, err = subject.Get(28, nil)
 		Expect(err).To(MatchError(ErrNotExist))
+	})
+
+	It("should iterate over readers", func() {
+		sr, err := subject.Get(89, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		it := sr.NewIterator(nil, nil)
+		defer it.Release()
+
+		n := 0
+		for it.First(); it.Valid(); it.Next() {
+			n++
+		}
+		Expect(it.Error()).NotTo(HaveOccurred())
+		Expect(n).To(Equal(17))
 	})
 
 })

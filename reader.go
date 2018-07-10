@@ -25,15 +25,15 @@ var (
 type Reader struct {
 	r io.ReaderAt
 
-	shards  map[uint32]*table.Reader
-	offsets map[uint32]int64
-	sizes   map[uint32]int64
+	shards  map[uint64]*table.Reader
+	offsets map[uint64]int64
+	sizes   map[uint64]int64
 	mu      sync.RWMutex
 }
 
 // NewReader requires an instance of the underlying reader
 func NewReader(r io.ReaderAt, size int64) (*Reader, error) {
-	sb := make([]byte, 12)
+	sb := make([]byte, 16)
 
 	// read header
 	if _, err := r.ReadAt(sb[:9], 0); err != nil {
@@ -46,20 +46,23 @@ func NewReader(r io.ReaderAt, size int64) (*Reader, error) {
 		return nil, errBadVersion
 	}
 
-	// read footer
-	if _, err := r.ReadAt(sb[:8], size-8); err != nil {
+	// read trailer
+	trailerOffset := size - 8
+	if _, err := r.ReadAt(sb[:8], trailerOffset); err != nil {
 		return nil, err
 	}
-	offsets := make(map[uint32]int64)
-	sizes := make(map[uint32]int64)
+	indexOffset := int64(binary.LittleEndian.Uint64(sb[:8]))
+
+	offsets := make(map[uint64]int64)
+	sizes := make(map[uint64]int64)
 	last := shardOffset{}
-	for pos := int64(binary.LittleEndian.Uint64(sb[:8])); pos < size-8; pos += 12 {
+	for pos := indexOffset; pos < trailerOffset; pos += 16 {
 		if _, err := r.ReadAt(sb, pos); err != nil {
 			return nil, err
 		}
 
-		shard := binary.LittleEndian.Uint32(sb[:4])
-		offset := int64(binary.LittleEndian.Uint64(sb[4:]))
+		shard := binary.LittleEndian.Uint64(sb[:8])
+		offset := int64(binary.LittleEndian.Uint64(sb[8:]))
 		offsets[shard] = offset
 		if last.Offset > 0 {
 			sizes[last.Shard] = offset - last.Offset
@@ -67,19 +70,19 @@ func NewReader(r io.ReaderAt, size int64) (*Reader, error) {
 		last.Shard, last.Offset = shard, offset
 	}
 	if last.Offset > 0 {
-		sizes[last.Shard] = size - 8 - last.Offset
+		sizes[last.Shard] = indexOffset - last.Offset
 	}
 
 	return &Reader{
 		r:       r,
-		shards:  make(map[uint32]*table.Reader),
+		shards:  make(map[uint64]*table.Reader),
 		offsets: offsets,
 		sizes:   sizes,
 	}, nil
 }
 
 // Get returns a shard reader or ErrNotExist if a shard does not exist.
-func (r *Reader) Get(shard uint32, opt *opt.Options) (ShardReader, error) {
+func (r *Reader) Get(shard uint64, opt *opt.Options) (ShardReader, error) {
 	r.mu.RLock()
 	reader, rok := r.shards[shard]
 	offset, ook := r.offsets[shard]

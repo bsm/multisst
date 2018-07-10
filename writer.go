@@ -42,7 +42,7 @@ func NewWriter(w io.Writer) (*Writer, error) {
 
 // Create creates a new shard and returns a ShardWriter. A writer can only handle one shard at a time,
 // please don't forget to call ShardWriter.Close() before trying to create the next shard.
-func (w *Writer) Create(shard uint32, opt *opt.Options) (*ShardWriter, error) {
+func (w *Writer) Create(shard uint64, opt *opt.Options) (*ShardWriter, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -91,16 +91,16 @@ func (w *Writer) Close() error {
 
 func (w *Writer) flush() error {
 	pos := w.w.offset
-	sb := make([]byte, 12)
+	sb := make([]byte, 16)
 	for _, so := range w.offsets {
-		binary.LittleEndian.PutUint32(sb[:4], so.Shard)
-		binary.LittleEndian.PutUint64(sb[4:], uint64(so.Offset))
+		binary.LittleEndian.PutUint64(sb[:8], so.Shard)
+		binary.LittleEndian.PutUint64(sb[8:], uint64(so.Offset))
 		if _, err := w.w.Write(sb); err != nil {
 			return err
 		}
 	}
 
-	binary.LittleEndian.PutUint64(sb, uint64(pos))
+	binary.LittleEndian.PutUint64(sb[:8], uint64(pos))
 	if _, err := w.w.Write(sb[:8]); err != nil {
 		return err
 	}

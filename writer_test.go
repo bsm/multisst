@@ -46,7 +46,7 @@ var _ = Describe("Writer", func() {
 		Expect(sw.Close()).To(Succeed())
 
 		Expect(subject.Close()).To(Succeed())
-		Expect(buf.Len()).To(Equal(431))
+		Expect(buf.Len()).To(Equal(443))
 	})
 
 	It("should only allow a shard at a time", func() {

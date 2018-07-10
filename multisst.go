@@ -7,7 +7,7 @@ const version = 1
 var magic = []byte("MULTISST")
 
 type shardOffset struct {
-	Shard  uint32
+	Shard  uint64
 	Offset int64
 }
 

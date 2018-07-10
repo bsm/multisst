@@ -32,7 +32,7 @@ func ExampleWriter() {
 	}
 
 	// Write shard #1
-	sw1, err := w.Create(0, nil)
+	sw1, err := w.Create(1, nil)
 	if err != nil {
 		panic(err)
 	}
